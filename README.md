@@ -1,4 +1,4 @@
-MIDI Interface for VOlcas and friends
+MIDI Interface for Volcas and friends
 =====================================
 
 
