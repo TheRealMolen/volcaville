@@ -6,27 +6,45 @@
 
 #include <MIDIUSB.h>
 
-int lit=0;
+byte lit=0;
+
+static const byte led_pin = 13;
+static const byte mode_pin = 2;
 
 
 void setup() {
-  pinMode(13,OUTPUT);
+  pinMode(led_pin,OUTPUT);
+
+  // the mode switch is across GND and pin3, so we set 3 HIGH forever
+  pinMode(3,OUTPUT);
+  digitalWrite(3, HIGH);
+  
+  pinMode(mode_pin, INPUT);
+  
   Serial1.begin(31250);
 }
 
+byte oldVolcaMode = 0;
 void loop() {
+
+  byte volcaMode = digitalRead(mode_pin);
+  if (volcaMode != oldVolcaMode) {
+    lit = volcaMode;
+    digitalWrite(led_pin, lit);
+    oldVolcaMode = volcaMode;
+  }
  
   midiEventPacket_t message = MidiUSB.read();
 
-  // ignore virtul cable number for now - we're just one
+  // ignore virtual cable number for now - we're just one
   int cin = message.header & 0xf;
 
   int chan = message.byte1 & 0xf;
   // SAMPLE only cares about noteOn messages
-  if( (cin == 8 && chan >= 10) || cin == 9)
+  if( (cin == 8 && (!volcaMode || chan >= 10)) || cin == 9)
   {
     lit = 1-lit;
-    digitalWrite(13,lit);
+    digitalWrite(led_pin,lit);
     midiSend3(message.byte1, message.byte2, message.byte3);
   }
 
