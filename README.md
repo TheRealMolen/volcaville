@@ -9,5 +9,8 @@ Helps with mapping for plugging a Volca Sample and another instrument
 * other instruments should use higher channels
 
 
+Wiring
+------
 
+![Wiring Diagram](wiring.png)
 
