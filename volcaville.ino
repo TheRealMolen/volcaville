@@ -1,4 +1,6 @@
 // Arduino-based MIDI interface, customised for VOLCA sample & fm
+//   -- it's mostly a USB -> MIDI 5-pin OUT interface now
+//
 // MIDI data pin is 1(TX)
 // expects volca fm on MIDI channel 11
 
@@ -8,9 +10,14 @@
 
 byte lit=0;
 
-static const byte led_pin = 13;
-static const byte mode_pin = 2;
+static constexpr byte led_pin = 13;
+static constexpr byte mode_pin = 2;
 
+
+void toggleLed() {
+  lit = 1 - lit;
+  digitalWrite(led_pin,lit);
+}
 
 void setup() {
   pinMode(led_pin,OUTPUT);
@@ -40,51 +47,87 @@ void loop() {
   int cin = message.header & 0xf;
 
   int chan = message.byte1 & 0xf;
-  // SAMPLE only cares about noteOn messages
-  if( (cin == 8 && (!volcaMode || chan >= 10)) || cin == 9)
-  {
-    lit = 1-lit;
-    digitalWrite(led_pin,lit);
-    midiSend3(message.byte1, message.byte2, message.byte3);
-  }
 
-  // is it 3 bytes of sysex? (either start, cont, or end)
-  else if( cin == 4 || cin == 7)
+  switch (cin)
   {
-    midiSend3(message.byte1, message.byte2, message.byte3);
-  }
-  else if( cin == 6 )
-  {
-    midiSend2(message.byte1, message.byte2);
-  }
-  else if( cin == 5 )
-  {
-    midiSend1(message.byte1);
-  }
-  else if( cin == 0xb )
-  {
-    midiSend3(message.byte1, message.byte2, message.byte3);
-  }
-  else if( cin == 0xc )
-  {
-    midiSend2(message.byte1, message.byte2);
-  }
-  else if( cin == 0xe )
-  {
-    midiSend3(message.byte1, message.byte2, message.byte3);
-  }
-  else if( cin == 0xd )
-  {
-    midiSend2(message.byte1, message.byte2);
-  }
+    case 0:   // reserved
+      break;
+    case 1:   // cable event; reserved
+      break;
 
-  /* -- using MIDI to sync directly has a lot of downsides
-   *  --> would be better to add a 3.5mm SYNC OUT socket where we send sync to VOLCAs & POs
-  else if( message.byte1 == 0xf8 || (message.byte1 >= 0xfa && message.byte1 <= 0xfc)  )
-  {
-    midiSend1(message.byte1);
+    case 2:   // 2 byte system-common
+      midiSend2(message.byte1, message.byte2);
+      break;
+
+    case 3:   // 3 byte system common
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 4:   // 3 byte SysEx (start / continue)
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 5:   // 1 byte system common / final SysEx byte
+      midiSend1(message.byte1);
+      break;
+
+    case 6:   // final 2 bytes of SysEx
+      midiSend2(message.byte1, message.byte2);
+      break;
+      
+    case 7:   // final 3 bytes of SysEx
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 8:   // note off
+      // Volca SAMPLE only cares about noteOn messages
+      if (!volcaMode || chan >= 10)
+      {
+        toggleLed();
+        midiSend3(message.byte1, message.byte2, message.byte3);
+      }
+      break;
+
+    case 9:   // note on
+      toggleLed();
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 0xa: // aftertouch
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 0xb: // cc
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 0xc: // program change
+      midiSend2(message.byte1, message.byte2);
+      break;
+
+    case 0xd: // channel pressure
+      midiSend2(message.byte1, message.byte2);
+      break;
+
+    case 0xe: // pitch bend
+      midiSend3(message.byte1, message.byte2, message.byte3);
+      break;
+
+    case 0xf: // single-byte, e.g. realtime (Start, Stop, Clock, ...)
+      if (!volcaMode)
+      {
+        midiSend1(message.byte1);
+        
+        /* -- using MIDI to sync directly has a lot of downsides, esp. for Volcas
+         *  --> would be better to add a 3.5mm SYNC OUT socket where we send sync to VOLCAs & POs
+        if( message.byte1 == 0xf8 || (message.byte1 >= 0xfa && message.byte1 <= 0xfc)  )
+        {
+          midiSend1(message.byte1);
+        }
+        */
+      }
+      break;
   }
-  */
 }
 
 
